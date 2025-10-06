@@ -1,0 +1,109 @@
+---
+title: "p8105_hw3_ss7636"
+output: html_document
+date: "2025-10-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+
+## Problem 1
+
+```{r}
+library(p8105.datasets)
+data("instacart")
+instacart
+```
+The dataset contains 1,384,617 observations of 131,209 unique users, where each row in the dataset is a product from an order. There is a single order per user in this dataset. There are 15 variables in this dataset, and a couple key important variables are order_id: order identifier, product_id: product identifier, and add_to_cart_order: order in which each product was added to cart
+
+```{r}
+n_aisles = instacart |> 
+  summarize(n_aisles = n_distinct(aisle)) |> 
+  pull(n_aisles)
+
+n_aisles
+
+```
+
+```{r}
+intacart_items_ordered = instacart |> 
+  count(aisle, name = "items_ordered") |> 
+  arrange(desc(items_ordered))
+
+intacart_items_ordered
+```
+
+There are 134 aisles and most items are ordered from the fresh vegetables and fresh fruits sections. 
+
+```{r}
+intacart_items_ordered  |> 
+  filter(items_ordered > 10000) |> 
+  ggplot(aes(x = reorder(aisle, -items_ordered), y = items_ordered)) + 
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # rotate labels
+  labs(title = "Items Ordered per Aisle (Above 10,000 Orders)",
+       x = "Aisle",
+       y = "Number of Items Ordered")
+
+intacart_items_ordered
+  
+```
+
+```{r}
+top_3_items = instacart |> 
+  filter(aisle == c("baking ingredients", "dog food care", "packaged vegetables fruits")) |> 
+  select(aisle, product_name) |> 
+  group_by(aisle, product_name) |> 
+  summarize(n_orders = n()) |> 
+  arrange(aisle, desc(n_orders)) |> 
+  filter(row_number() <= 3) 
+
+top_3_items
+```
+
+```{r}
+knitr::kable(top_3_items)
+```
+
+
+```{r}
+mean_hour = instacart |> 
+  filter(product_name == c("Pink Lady Apples", "Coffee Ice Cream")) |> 
+  select(product_name, order_hour_of_day, order_dow) |> 
+  group_by(product_name, order_dow) |> 
+  summarize(mean_hour = round(mean(order_hour_of_day), 2)) |> 
+  pivot_wider (
+    names_from = "order_dow",
+    values_from = "mean_hour"
+  )
+
+mean_hour
+```
+```{r}
+knitr::kable(mean_hour)
+```
+
+
+
