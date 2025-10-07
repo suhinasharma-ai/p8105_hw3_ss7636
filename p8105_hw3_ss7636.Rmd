@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library(patchwork)
 
 knitr::opts_chunk$set(
   fig.width = 6,
@@ -105,5 +106,140 @@ mean_hour
 knitr::kable(mean_hour)
 ```
 
+## Question 2
+
+```{r}
+#Import and clean zipcodes dataset. Remove irrelevant columns, such as state_fips and file_date. 
+zipcodes = 
+ read_csv("zillow_data/Zip Codes.csv", na = c("NA",".", "")) |> 
+  janitor :: clean_names() |> 
+  select(-"state_fips", -"file_date")  
+zipcodes
+```
+
+```{r}
+#Import zillow dataset and analyze what needs to be changed.
+zillow = 
+ read_csv("zillow_data/Zip_zori_uc_sfrcondomfr_sm_month_NYC.csv", na = c("NA",".", "")) |> 
+  janitor:: clean_names() 
+zillow
+```
+
+```{r}
+#Clean zillow dataset. Pivot longer the dates, showing the rent values on zillow. Removing irrelelvent columns. Changing the name of region_name to zip_code so it can match up with the name in the zipcodes dataset. Removing the "County" text in the county_name column, so the format can match up with the county names in the zipcodes dataset. Also want to rename county_name to county so I can join the dataset by zipcode and county. 
+zillow = 
+ read_csv("zillow_data/Zip_zori_uc_sfrcondomfr_sm_month_NYC.csv", na = c("NA",".", "")) |> 
+  janitor:: clean_names() |> 
+  pivot_longer(
+    cols = x2015_01_31:x2024_08_31,       
+    names_to = "date",  
+    values_to = "zori"   
+  ) |> 
+  mutate(
+    date = str_remove(date, "x")
+  ) |> 
+  select(-"city", -"metro", -"region_type",  -"state_name", -"state") |> 
+  rename(zip_code = region_name) |> 
+  mutate(
+    county_name = str_remove(county_name, " County")
+  ) |> 
+  rename(county = county_name)
+zillow
+```
+```{r}
+joined_zipcodes_nyc = left_join(zipcodes, zillow, by = c("zip_code", "county"))
+joined_zipcodes_nyc
+```
+```{r}
+joined_zipcodes_nyc |> 
+  group_by(zip_code) |> 
+  summarize(n_obs = n()) |> 
+  summarize(n_equal_116 = sum(n_obs == 116)) |> 
+  pull(n_equal_116)
+
+```
+
+There are 146 zipcodes that are observed 116 times. 
+
+```{r}
+joined_zipcodes_nyc |> 
+  group_by(zip_code) |> 
+  summarize(n_obs = n()) |> 
+  summarize(n_fewer_10 = sum(n_obs < 10)) |> 
+  pull(n_fewer_10)
+```
+
+There are 172 zipcodes that are observed fewer than 10 times. 
+
+We might see this because it is possible that many zipcodes are in regions that are not inhabitable, for example in area of reserve or significant landmarks that would not have a rental listing.
+
+```{r}
+joined_zipcodes_nyc_average_rent_year = joined_zipcodes_nyc |> 
+  separate(date, into = c("year", "month", "day"), sep = "_") |> 
+  mutate(
+    year = as.integer(year),
+    month = as.integer(month),
+    day = as.integer(day)
+  ) |> 
+  drop_na(zori) |> 
+  select(county, year, zori, zip_code) |> 
+  group_by(county, year) |> 
+  summarize(average_rental_price = mean(zori))
+
+joined_zipcodes_nyc_average_rent_year
+
+knitr::kable(joined_zipcodes_nyc_average_rent_year)
+```
+
+Average rent prices are going up 
+```{r}
+rent_price_by_county = joined_zipcodes_nyc_average_rent_year |> 
+  ggplot(aes(x = factor(year), y = average_rental_price, color = county, group = county)) + 
+  geom_point(alpha = 0.5) +
+  labs(title = "NYC Rental Prices Across ZIP Codes by Borough",
+       x = "Year",
+       y = "Average Rent Price ($)") + 
+  geom_line()
+
+rent_price_by_county
+```
+
+New York had the average highest rent price across all the years from 2015-2024, probably because it is one of the most touristy areas, and the Bronx had the lowest average rent price across the years 2015-2024. New York, Kings, and Queens all experiences a slight dip around 2020, which makes sense due to COVID-19, and then have been on the rise since 2021. Richmond only has recorded average rent price values after 2020, and it seems to consistently be going up. 
+
+```{r}
+joined_zipcodes_nyc_average_rent_by_month_2023 = joined_zipcodes_nyc |> 
+  separate(date, into = c("year", "month", "day"), sep = "_") |> 
+  mutate(
+    year = as.integer(year),
+    month = as.integer(month),
+    day = as.integer(day)
+  ) |> 
+  drop_na(zori) |> 
+  filter(year == 2023) |> 
+  select(county, month, zori, zip_code) |> 
+  group_by(month, county, zip_code) |> 
+  summarize(average_rent = mean(zori))
+
+joined_zipcodes_nyc_average_rent_by_month_2023
+```
+```{r}
+joined_zipcodes_nyc_average_rent_by_month_2023_plot = 
+joined_zipcodes_nyc_average_rent_by_month_2023 |> 
+  ggplot(aes(x = county, y = average_rent, fill = county)) +
+  geom_violin(alpha = 0.7) +
+  labs(
+    title = "Distribution of ZIP-Code-Level Rental Prices Across NYC Boroughs (2023)",
+    x = "Borough",
+    y = "Average Monthly Rent ($)"
+  ) 
+
+joined_zipcodes_nyc_average_rent_by_month_2023_plot
+```
+
+```{r}
+combined_plot = rent_price_by_county | joined_zipcodes_nyc_average_rent_by_month_2023_plot
+ggsave("results/combined_plot.png",
+       combined_plot)
+```
 
 
