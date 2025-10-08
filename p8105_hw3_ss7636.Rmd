@@ -37,7 +37,7 @@ library(p8105.datasets)
 data("instacart")
 instacart
 ```
-The dataset contains 1,384,617 observations of 131,209 unique users, where each row in the dataset is a product from an order. There is a single order per user in this dataset. There are 15 variables in this dataset, and a couple key important variables are order_id: order identifier, product_id: product identifier, and add_to_cart_order: order in which each product was added to cart
+The dataset contains 1,384,617 observations of 131,209 unique users, where each row in the dataset is a product from an order. There is a single order per user in this dataset. There are 15 variables in this dataset, and a couple key important variables are product_name: the name of the product, order_hour_of_day: what time of day the product was ordered, order_dow: what day of the week the product was ordered, aisle: which aisle the product was ordered from, and department: which department the product falls under.
 
 ```{r}
 n_aisles = instacart |> 
@@ -95,10 +95,21 @@ mean_hour = instacart |>
   select(product_name, order_hour_of_day, order_dow) |> 
   group_by(product_name, order_dow) |> 
   summarize(mean_hour = round(mean(order_hour_of_day), 2)) |> 
+    mutate(
+    order_dow = as.integer(order_dow),
+    order_dow = case_when(
+      order_dow == 0 ~ "Sunday",
+      order_dow == 1 ~ "Monday",
+      order_dow == 2 ~ "Tuesday",
+      order_dow == 3 ~ "Wednesday",
+      order_dow == 4 ~ "Thursday",
+      order_dow == 5 ~ "Friday",
+      order_dow == 6 ~ "Saturday"
+    )) |> 
   pivot_wider (
     names_from = "order_dow",
     values_from = "mean_hour"
-  )
+  ) 
 
 mean_hour
 ```
@@ -184,24 +195,40 @@ joined_zipcodes_nyc_average_rent_year = joined_zipcodes_nyc |>
   drop_na(zori) |> 
   select(county, year, zori, zip_code) |> 
   group_by(county, year) |> 
-  summarize(average_rental_price = mean(zori))
+  summarize(average_rental_price = mean(zori)) |> 
+  pivot_wider (
+    names_from = "year",
+    values_from = "average_rental_price"
+  )
 
 joined_zipcodes_nyc_average_rent_year
 
 knitr::kable(joined_zipcodes_nyc_average_rent_year)
 ```
 
-Average rent prices are going up 
+The table shows a steady rise in rental prices across all NYC boroughs from 2015 to 2024, with temporary dips in 2020–2021 likely reflecting the COVID-19 pandemic’s impact. Manhattan (New York County) consistently has the highest rents, exceeding $4,000 by 2024, followed by Brooklyn (Kings County) and Queens. The Bronx remains the most affordable, though it too has seen substantial rent growth over the decade. Richmond (Staten Island) data becomes available in 2020 and follows a moderate upward trajectory.
+
+
 ```{r}
-rent_price_by_county = joined_zipcodes_nyc_average_rent_year |> 
-  ggplot(aes(x = factor(year), y = average_rental_price, color = county, group = county)) + 
+
+nyc_rent_long = joined_zipcodes_nyc_average_rent_year |> 
+  pivot_longer(
+    cols = -county,
+    names_to = "year",
+    values_to = "average_rental_price"
+  ) |> 
+  mutate(year = as.integer(year))
+
+rent_price_by_county = nyc_rent_long |> 
+  ggplot(aes(x = year, y = average_rental_price, color = county, group = county)) + 
   geom_point(alpha = 0.5) +
   labs(title = "NYC Rental Prices Across ZIP Codes by Borough",
        x = "Year",
        y = "Average Rent Price ($)") + 
   geom_line()
 
-rent_price_by_county
+rent_price_by_county 
+
 ```
 
 New York had the average highest rent price across all the years from 2015-2024, probably because it is one of the most touristy areas, and the Bronx had the lowest average rent price across the years 2015-2024. New York, Kings, and Queens all experiences a slight dip around 2020, which makes sense due to COVID-19, and then have been on the rise since 2021. Richmond only has recorded average rent price values after 2020, and it seems to consistently be going up. 
@@ -242,4 +269,140 @@ ggsave("results/combined_plot.png",
        combined_plot)
 ```
 
+## Question 3
 
+Load data
+
+```{r}
+accelerometer = 
+ read_csv("nhanes_accel.csv", na = c("NA",".", "")) |> 
+  janitor:: clean_names() |> 
+  pivot_longer(
+    cols = min1:last_col(),       
+    names_to = "minute",  
+    values_to = "mims_values"   
+  ) |> 
+  mutate(
+    minute = as.numeric(str_remove(minute, "min"))  # remove "min" and convert to number
+  )
+
+
+accelerometer
+
+
+demographic = 
+ read_csv("nhanes_covar.csv",skip = 4, na = c("NA",".", "")) |> 
+  janitor:: clean_names() |> 
+  mutate(
+    sex = 
+      case_match(
+        sex, 
+        1 ~ "male", 
+        2 ~ "female"),
+    sex = as.factor(sex)) |> 
+  mutate(
+    education = 
+      case_match(
+        education, 
+        2 ~ "high school equivalent",
+        3 ~ "more than high school"
+      )
+  )
+
+demographic
+```
+```{r}
+joined_accelerometer_demographic = 
+  left_join(accelerometer, demographic, by = "seqn") |> 
+  filter(age >= 21) |> 
+  drop_na(sex, age, bmi, education) |> 
+  select(seqn, sex, age, bmi, education, everything())
+
+joined_accelerometer_demographic
+
+```
+
+```{r}
+men_women_education = joined_accelerometer_demographic |> 
+  select(sex, education) |> 
+  group_by(sex, education) |> 
+  summarize(count_education_levels = n()) |> 
+  pivot_wider(
+    names_from = "education",
+    values_from = "count_education_levels"
+  )
+
+men_women_education 
+
+knitr::kable(men_women_education)
+```
+
+```{r}
+
+joined_accelerometer_demographic |> 
+  ggplot(aes(x = education, y = age, fill = sex)) +
+  geom_boxplot(alpha = 0.6) +
+  facet_wrap(~ sex) +
+  labs(
+    title = "Age Distributions by Sex and Education Level",
+    x = "Education Level",
+    y = "Age (Years)",
+    fill = "Sex"
+  ) 
+
+
+```
+
+
+
+
+
+
+
+
+Among both men and women, individuals with more than a high school education tend to be slightly younger on average, maybe reflecting more recent participation in educational advancement. The spread of ages is wider among men, suggesting greater variation in age among those with different education levels. Women show a somewhat more uniform distribution across education groups.
+
+
+```{r}
+total_mims = joined_accelerometer_demographic |> 
+  group_by(seqn, sex, age, education) |> 
+  summarize(total_activity = sum(mims_values, na.rm = TRUE), .groups = "drop")
+            
+total_mims  
+```
+```{r}
+mims_plot = total_mims |> 
+  ggplot(aes(x = age, y = total_activity, color = sex)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", se = FALSE) +
+  facet_wrap(~ education) +
+  labs(
+    title = "Total Daily Activity vs. Age by Sex and Education Level",
+    x = "Age (years)",
+    y = "Total Daily Activity (sum of MIMS values)",
+    color = "Sex"
+  ) 
+
+mims_plot
+```
+
+The scatterplot shows total daily activity as a function of age, comparing men and women with panels for education level. Men generally have slightly higher total activity, but these differences tend to be variable throughout the years.There seems to be a greater difference in male and female for those with a high school equivelant education, around the age of 40. Across education levels, participants with more than a high school education tend to have higher total activity on average. The smooth trend line highlights that total activity declines with age for both sexes.
+
+```{r}
+activity_by_minute = joined_accelerometer_demographic |> 
+  group_by(minute, sex, education) |> 
+  summarize(mean_activity = mean(mims_values, na.rm = TRUE), .groups = "drop")
+
+ggplot(activity_by_minute, aes(x = minute, y = mean_activity, color = sex)) +
+  geom_line(alpha = 0.8) +
+  geom_smooth(se = FALSE, method = "loess", linetype = "dashed") +
+  facet_wrap(~ education, ncol = 1) +
+  labs(
+    title = "24-Hour Activity Profiles by Education Level and Sex",
+    x = "Minute of the Day (0–1440)",
+    y = "Average MIMS Value (Activity Intensity)",
+    color = "Sex"
+  ) 
+```
+
+Both men and women are most active during minutes 500-100 (between hours 8-16). It seems that both men and women seem less active earlier in the day, and then they slowly rise to their peak. Both slowly become less active as the day continues on towards the end of the day. There is no big difference between men and women, as well as across education level. 
