@@ -8,7 +8,9 @@ date: "2025-10-06"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
 ```{r}
+#Import data and copy and paste setting options from class.
 library(tidyverse)
 library(patchwork)
 
@@ -49,6 +51,7 @@ n_aisles
 ```
 
 ```{r}
+#Counting the number of items ordered per aisle and rearranging from descending order to get the aisle with the most orders on top. 
 intacart_items_ordered = instacart |> 
   count(aisle, name = "items_ordered") |> 
   arrange(desc(items_ordered))
@@ -59,6 +62,8 @@ intacart_items_ordered
 There are 134 aisles and most items are ordered from the fresh vegetables and fresh fruits sections. 
 
 ```{r}
+#Making a bar chart. Showing the aisle name at the bottom with how many items were ordered on the y axis. Showing the most ordered from aisles on the left and going in decreasing order. 
+
 intacart_items_ordered  |> 
   filter(items_ordered > 10000) |> 
   ggplot(aes(x = reorder(aisle, -items_ordered), y = items_ordered)) + 
@@ -71,8 +76,11 @@ intacart_items_ordered  |>
 intacart_items_ordered
   
 ```
+From this histogram, we can see that Fresh fruits, fresh vegetable, and packaged vegetable fruits were ordered the most. Candy chocolate, dry pasta, oils vinegars, and butter were ordered the least.
 
 ```{r}
+#Filtering by the aisles we want, selecting by the product name, and summarizing by the number of orderes for each aisle and product name grouped. Filtering the top 3 rows for each aisle.
+
 top_3_items = instacart |> 
   filter(aisle == c("baking ingredients", "dog food care", "packaged vegetables fruits")) |> 
   select(aisle, product_name) |> 
@@ -88,8 +96,10 @@ top_3_items
 knitr::kable(top_3_items)
 ```
 
+Light brown sugar, organix grain free chichen and vegetable dog food, and organic baby spinach were the products bought the most between baking ingredients, dog food care, and packaged vegetable fruits. 
 
 ```{r}
+# Filter two specific products. Computes average order time per weekday. Converts day numbers to names. Displays the results in a clear, comparative table.
 mean_hour = instacart |> 
   filter(product_name == c("Pink Lady Apples", "Coffee Ice Cream")) |> 
   select(product_name, order_hour_of_day, order_dow) |> 
@@ -116,6 +126,8 @@ mean_hour
 ```{r}
 knitr::kable(mean_hour)
 ```
+
+Coffee Ice Cream is typically ordered in the afternoon on weekdays (around 3 PM), but earlier on Friday and the weekend (around 10–12 PM).This suggests that people might buy ice cream earlier when they have more free time (like weekend shopping). Pink Lady Apples are generally ordered around midday, with small variations across the week. People might be adding fruit to their groceries during regular shopping times — more consistent and practical compared to the more treat-based purchase pattern of ice cream.
 
 ## Question 2
 
@@ -158,10 +170,12 @@ zillow =
 zillow
 ```
 ```{r}
+#Joining the two zipcode files by zipcode and county
 joined_zipcodes_nyc = left_join(zipcodes, zillow, by = c("zip_code", "county"))
 joined_zipcodes_nyc
 ```
 ```{r}
+#Grouping-by zipcode and counting the number of observations for each zipcode. Finding how many zipcodes were counted 116 times. 
 joined_zipcodes_nyc |> 
   group_by(zip_code) |> 
   summarize(n_obs = n()) |> 
@@ -173,6 +187,7 @@ joined_zipcodes_nyc |>
 There are 146 zipcodes that are observed 116 times. 
 
 ```{r}
+#Grouping-by zipcode and counting the number of observations for each zipcode. Finding how many zipcodes were counted fewer than 10 times.
 joined_zipcodes_nyc |> 
   group_by(zip_code) |> 
   summarize(n_obs = n()) |> 
@@ -182,9 +197,11 @@ joined_zipcodes_nyc |>
 
 There are 172 zipcodes that are observed fewer than 10 times. 
 
-We might see this because it is possible that many zipcodes are in regions that are not inhabitable, for example in area of reserve or significant landmarks that would not have a rental listing.
+We might see this because it is possible that many zipcodes are in regions that are not as inhabitable, for example in area of reserve or significant landmarks that would not have a rental listing and may not have enough data to generate monthly estimates.
 
 ```{r}
+#Separate the joined data into year, month, and day. Grouping by county and year and values show the average rental price for each county across the years. Pivot Wider the data to make it into a more presentable table. 
+
 joined_zipcodes_nyc_average_rent_year = joined_zipcodes_nyc |> 
   separate(date, into = c("year", "month", "day"), sep = "_") |> 
   mutate(
@@ -210,6 +227,7 @@ The table shows a steady rise in rental prices across all NYC boroughs from 2015
 
 
 ```{r}
+#Wanted to show how average rental price changes through the years for each borough. Chose to do a line graph showing the trend over time, with each borough as a different color. Code reshapes the dataset using pivot_longer() to convert yearly rent columns into a long format with year and average_rental_price columns, then converts year to an integer using mutate(). It then creates a line plot with ggplot(), where geom_point() adds points for average rental prices, geom_line() connects them to show trends over time, colors represent different boroughs (county), and labs() provides clear axis labels and a descriptive title to illustrate changes in NYC rental prices across boroughs by year.
 
 nyc_rent_long = joined_zipcodes_nyc_average_rent_year |> 
   pivot_longer(
@@ -220,7 +238,7 @@ nyc_rent_long = joined_zipcodes_nyc_average_rent_year |>
   mutate(year = as.integer(year))
 
 rent_price_by_county = nyc_rent_long |> 
-  ggplot(aes(x = year, y = average_rental_price, color = county, group = county)) + 
+  ggplot(aes(x = factor(year), y = average_rental_price, color = county, group = county)) + 
   geom_point(alpha = 0.5) +
   labs(title = "NYC Rental Prices Across ZIP Codes by Borough",
        x = "Year",
@@ -231,9 +249,10 @@ rent_price_by_county
 
 ```
 
-New York had the average highest rent price across all the years from 2015-2024, probably because it is one of the most touristy areas, and the Bronx had the lowest average rent price across the years 2015-2024. New York, Kings, and Queens all experiences a slight dip around 2020, which makes sense due to COVID-19, and then have been on the rise since 2021. Richmond only has recorded average rent price values after 2020, and it seems to consistently be going up. 
+New York had the average highest rent price across all the years from 2015-2024, probably because it is one of the most touristy and well-known areas, and the Bronx had the lowest average rent price across the years 2015-2024. New York, Kings, and Queens all experiences a slight dip around 2020, which makes sense due to COVID-19, and then have been on the rise since 2021. Richmond only has recorded average rent price values after 2020, and it seems to consistently be going up.
 
 ```{r}
+#Filter year as 2023 and show the average rent for each county and zipcode. 
 joined_zipcodes_nyc_average_rent_by_month_2023 = joined_zipcodes_nyc |> 
   separate(date, into = c("year", "month", "day"), sep = "_") |> 
   mutate(
@@ -250,6 +269,8 @@ joined_zipcodes_nyc_average_rent_by_month_2023 = joined_zipcodes_nyc |>
 joined_zipcodes_nyc_average_rent_by_month_2023
 ```
 ```{r}
+# created a violin plot using ggplot() to visualize the distribution of average monthly rental prices across NYC boroughs in 2023. The data are mapped so that county is on the x-axis and average_rent is on the y-axis, with each borough filled with a distinct color using fill = county. The geom_violin() function displays the full distribution of rental prices for each borough, showing both the range and density of values, while labs() adds a clear title and axis labels to make the plot easy to interpret.
+
 joined_zipcodes_nyc_average_rent_by_month_2023_plot = 
 joined_zipcodes_nyc_average_rent_by_month_2023 |> 
   ggplot(aes(x = county, y = average_rent, fill = county)) +
@@ -262,6 +283,7 @@ joined_zipcodes_nyc_average_rent_by_month_2023 |>
 
 joined_zipcodes_nyc_average_rent_by_month_2023_plot
 ```
+The violin plot illustrates the distribution of ZIP-code-level rents across NYC boroughs in 2023. Manhattan (New York County) shows the widest range of rents, indicating high variability with some very expensive areas. In contrast, the Bronx and Staten Island (Richmond County) have more compact violins, showing rents are lower and more consistent across ZIP codes. This highlights substantial geographic disparities in rental prices within NYC.
 
 ```{r}
 combined_plot = rent_price_by_county | joined_zipcodes_nyc_average_rent_by_month_2023_plot
@@ -271,9 +293,9 @@ ggsave("results/combined_plot.png",
 
 ## Question 3
 
-Load data
 
 ```{r}
+#Load the data and tidy the data
 accelerometer = 
  read_csv("nhanes_accel.csv", na = c("NA",".", "")) |> 
   janitor:: clean_names() |> 
@@ -312,6 +334,7 @@ demographic =
 demographic
 ```
 ```{r}
+#Join data by seqn (left join) because I want to keep the data from the accelerometer table since it is bigger. Filter ages greater than equal to 21 and reorder the table so it shows the demographic information first and accelerometer data later. 
 joined_accelerometer_demographic = 
   left_join(accelerometer, demographic, by = "seqn") |> 
   filter(age >= 21) |> 
@@ -323,6 +346,8 @@ joined_accelerometer_demographic
 ```
 
 ```{r}
+# Selecting the sex and education columns, grouping the data by these variables, counting the observations, reshaping the table with pivot_wider() so that education levels appear as columns, and formatting the result with knitr::kable() for clear presentation.
+
 men_women_education = joined_accelerometer_demographic |> 
   select(sex, education) |> 
   group_by(sex, education) |> 
@@ -336,6 +361,10 @@ men_women_education
 
 knitr::kable(men_women_education)
 ```
+
+
+This table shows the number of men and women across two education levels: high school equivalent and more than high school. Overall, there are more individuals with education beyond high school than those with only a high school equivalent education for both sexes. Among women, 84,960 have more than a high school education compared to 33,120 with a high school equivalent. Among men, the numbers are 80,640 and 50,400, respectively. This suggests that a higher proportion of both men and women in the dataset have pursued education beyond high school, with women slightly outnumbering men in the higher education category.
+
 
 ```{r}
 
@@ -354,16 +383,12 @@ joined_accelerometer_demographic |>
 ```
 
 
-
-
-
-
-
-
 Among both men and women, individuals with more than a high school education tend to be slightly younger on average, maybe reflecting more recent participation in educational advancement. The spread of ages is wider among men, suggesting greater variation in age among those with different education levels. Women show a somewhat more uniform distribution across education groups.
 
 
 ```{r}
+#calculating each participant’s total daily activity by grouping the data by seqn, sex, age, and education using group_by(), then summing their mims_values with summarize() while removing missing values using na.rm = TRUE.
+
 total_mims = joined_accelerometer_demographic |> 
   group_by(seqn, sex, age, education) |> 
   summarize(total_activity = sum(mims_values, na.rm = TRUE), .groups = "drop")
@@ -371,6 +396,8 @@ total_mims = joined_accelerometer_demographic |>
 total_mims  
 ```
 ```{r}
+# Creates a scatterplot of total daily activity versus age using ggplot(), where points are colored by sex with geom_point(), smoothed trends are added using geom_smooth(), separate panels are created for each education level with facet_wrap(), and descriptive labels and titles are added using labs() for clarity and readability.
+
 mims_plot = total_mims |> 
   ggplot(aes(x = age, y = total_activity, color = sex)) +
   geom_point(alpha = 0.5) +
@@ -386,9 +413,11 @@ mims_plot = total_mims |>
 mims_plot
 ```
 
-The scatterplot shows total daily activity as a function of age, comparing men and women with panels for education level. Men generally have slightly higher total activity, but these differences tend to be variable throughout the years.There seems to be a greater difference in male and female for those with a high school equivelant education, around the age of 40. Across education levels, participants with more than a high school education tend to have higher total activity on average. The smooth trend line highlights that total activity declines with age for both sexes.
+The scatterplot shows total daily activity as a function of age, comparing men and women with panels for education level. Men generally have slightly higher total activity, but these differences tend to be variable throughout the years.There seems to be a greater difference in male and female for those with a high school equivalent education, around the age of 40. Across education levels, participants with more than a high school education tend to have higher total activity on average. The smooth trend line highlights that total activity declines with age for both sexes.
 
 ```{r}
+#Calculates the average activity level for each minute of the day by grouping the data by minute, sex, and education using group_by() and computing the mean mims_values with summarize(). It then uses ggplot() to create a line plot showing how activity changes throughout the day, with geom_line() displaying activity trends, geom_smooth() adding dashed smooth curves for clarity, facet_wrap() creating separate panels for each education level, and labs() providing clear titles, axis labels, and a legend.
+
 activity_by_minute = joined_accelerometer_demographic |> 
   group_by(minute, sex, education) |> 
   summarize(mean_activity = mean(mims_values, na.rm = TRUE), .groups = "drop")
