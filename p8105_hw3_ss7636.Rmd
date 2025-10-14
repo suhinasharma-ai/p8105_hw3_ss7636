@@ -326,10 +326,12 @@ demographic =
     education = 
       case_match(
         education, 
+        1 ~ "less than high school",
         2 ~ "high school equivalent",
         3 ~ "more than high school"
       )
-  )
+  ) |> 
+  drop_na(education)
 
 demographic
 ```
@@ -348,14 +350,15 @@ joined_accelerometer_demographic
 ```{r}
 # Selecting the sex and education columns, grouping the data by these variables, counting the observations, reshaping the table with pivot_wider() so that education levels appear as columns, and formatting the result with knitr::kable() for clear presentation.
 
-men_women_education = joined_accelerometer_demographic |> 
+men_women_education = demographic |> 
   select(sex, education) |> 
   group_by(sex, education) |> 
   summarize(count_education_levels = n()) |> 
   pivot_wider(
     names_from = "education",
     values_from = "count_education_levels"
-  )
+  ) |> 
+  select(sex, `less than high school`, `high school equivalent`, `more than high school`)
 
 men_women_education 
 
@@ -363,7 +366,9 @@ knitr::kable(men_women_education)
 ```
 
 
-This table shows the number of men and women across two education levels: high school equivalent and more than high school. Overall, there are more individuals with education beyond high school than those with only a high school equivalent education for both sexes. Among women, 84,960 have more than a high school education compared to 33,120 with a high school equivalent. Among men, the numbers are 80,640 and 50,400, respectively. This suggests that a higher proportion of both men and women in the dataset have pursued education beyond high school, with women slightly outnumbering men in the higher education category.
+Among females, 29 individuals have less than a high school education, 23 have a high school equivalent education, and 59 have education beyond high school.
+Among males, 28 individuals have less than a high school education, 37 have a high school equivalent education, and 56 have more than high school education.
+Overall, both sexes have a similar number of individuals with less than a high school education. However, a greater proportion of females have education beyond high school, while a greater proportion of males have only a high school equivalent education.
 
 
 ```{r}
@@ -377,13 +382,14 @@ joined_accelerometer_demographic |>
     x = "Education Level",
     y = "Age (Years)",
     fill = "Sex"
-  ) 
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
 ```
 
 
-Among both men and women, individuals with more than a high school education tend to be slightly younger on average, maybe reflecting more recent participation in educational advancement. The spread of ages is wider among men, suggesting greater variation in age among those with different education levels. Women show a somewhat more uniform distribution across education groups.
+Among both men and women, individuals with more than a high school education tend to be slightly younger on average, maybe reflecting more recent participation in educational advancement. The spread of ages is wider among men, suggesting greater variation in age among those with different education levels. Women show a somewhat more uniform distribution across education groups. Men with a high school equivalent education are younger on average than women. 
 
 
 ```{r}
